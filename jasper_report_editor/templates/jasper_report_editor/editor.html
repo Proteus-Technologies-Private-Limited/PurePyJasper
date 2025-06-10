@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Jasper Report Editor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
+    <style>
+        .CodeMirror { height: 400px; border: 1px solid #ddd; }
+        .preview-container { min-height: 300px; border: 1px solid #ddd; background: #f8f9fa; }
+        .format-buttons .btn { margin-right: 10px; }
+        .fullscreen {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 9999 !important;
+            background: white !important;
+            padding: 20px !important;
+        }
+        .fullscreen .CodeMirror {
+            height: calc(100vh - 120px) !important;
+        }
+        .fullscreen .preview-container {
+            height: calc(100vh - 160px) !important;
+            overflow: auto !important;
+        }
+        .fullscreen-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 10000;
+        }
+        .preview-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .resizable-panels {
+            display: flex;
+            height: calc(100vh - 200px);
+        }
+        .editor-panel {
+            flex: 1;
+            min-width: 300px;
+            padding-right: 10px;
+        }
+        .preview-panel {
+            flex: 1;
+            min-width: 300px;
+            padding-left: 10px;
+        }
+        .panel-content {
+            height: 100%;
+            overflow: hidden;
+        }
+        .preview-container {
+            max-height: calc(100vh - 400px);
+            overflow-y: auto;
+        }
+        .fullscreen .preview-container {
+            max-height: calc(100vh - 200px);
+        }
+        .customer-group {
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            overflow: hidden;
+        }
+        .report-preview {
+            font-family: 'Times New Roman', serif;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid mt-3">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1><i class="fas fa-file-code me-2"></i>Jasper Report Editor</h1>
+                    <div>
+                        <a href="{{ url_for('JasperReportEditor.connections') }}" class="btn btn-outline-primary">
+                            <i class="fas fa-database"></i> Manage Connections
+                        </a>
+                        
+                        <!-- Samples Dropdown -->
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-outline-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-flask"></i> Samples
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><h6 class="dropdown-header">Database</h6></li>
+                                <li>
+                                    <a class="dropdown-item" href="{{ url_for('JasperReportEditor.generate_sample_db') }}">
+                                        <i class="fas fa-plus me-2"></i>Generate Sample Database
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><h6 class="dropdown-header">Sample Reports</h6></li>
+                                {% for report in sample_reports %}
+                                <li>
+                                    <a class="dropdown-item" href="{{ url_for('JasperReportEditor.load_sample_report', report_id=report.id) }}">
+                                        <i class="fas fa-file-code me-2"></i>{{ report.name }}
+                                    </a>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+            </div>
+        </div>
+
+        <!-- Resizable Panels Layout -->
+        <div class="resizable-panels">
+            <!-- Left Panel - Editor -->
+            <div class="editor-panel" id="editor-panel">
+                <div class="panel-content">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5><i class="fas fa-edit"></i> JRXML Editor</h5>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="toggleFullscreen('editor-panel')">
+                                <i class="fas fa-expand"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <!-- File Upload -->
+                            <form method="post" enctype="multipart/form-data" class="mb-3">
+                                <div class="input-group">
+                                    <input type="file" class="form-control" name="jrxml" accept=".jrxml,.xml">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-upload"></i> Upload
+                                    </button>
+                                </div>
+                            </form>
+
+                            <!-- Editor -->
+                            <form method="post" action="{{ url_for('JasperReportEditor.save_jrxml') }}">
+                                <textarea id="jrxml" name="jrxml_text">{{ jrxml_text }}</textarea>
+                                <input type="hidden" name="path" value="output.jrxml">
+                                <div class="mt-3">
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="fas fa-save"></i> Save
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel - Preview -->
+            <div class="preview-panel" id="preview-panel">
+                <div class="panel-content">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5><i class="fas fa-eye"></i> Report Preview</h5>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="toggleFullscreen('preview-panel')">
+                                <i class="fas fa-expand"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <!-- Database Selection -->
+                            <div class="mb-3">
+                                <label for="connection_select" class="form-label">Database Connection:</label>
+                                <select class="form-select" id="connection_select">
+                                    <option value="">Select connection...</option>
+                                    {% for conn in connections %}
+                                        <option value="{{ conn.id }}">{{ conn.name }} ({{ conn.database_type }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Output Format Selection -->
+                            <div class="mb-3">
+                                <label class="form-label">Output Format:</label>
+                                <div class="format-buttons">
+                                    <button type="button" class="btn btn-outline-primary format-btn" data-format="html">
+                                        <i class="fab fa-html5"></i> HTML
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger format-btn" data-format="pdf">
+                                        <i class="fas fa-file-pdf"></i> PDF
+                                    </button>
+                                    <button type="button" class="btn btn-outline-success format-btn" data-format="excel">
+                                        <i class="fas fa-file-excel"></i> Excel
+                                    </button>
+                                    <button type="button" class="btn btn-outline-info format-btn" data-format="rtf">
+                                        <i class="fas fa-file-word"></i> RTF
+                                    </button>
+                                </div>
+                            </div>
+
+                            <button type="button" class="btn btn-primary w-100" id="preview-btn">
+                                <i class="fas fa-play"></i> Generate Preview
+                            </button>
+
+                            <!-- Preview Area -->
+                            <div class="preview-container mt-3 p-3" id="preview-area">
+                                <div class="text-center text-muted">
+                                    <i class="fas fa-eye fa-2x mb-2"></i>
+                                    <p>Preview will appear here after generation</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Assistant Panel (Collapsible) -->
+        <div class="row mt-3">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 data-bs-toggle="collapse" data-bs-target="#assistant-panel" style="cursor: pointer;">
+                            <i class="fas fa-robot"></i> AI Assistant 
+                            <i class="fas fa-chevron-down float-end"></i>
+                        </h5>
+                    </div>
+                    <div class="collapse" id="assistant-panel">
+                        <div class="card-body">
+                            <form id="assistant-form" enctype="multipart/form-data">
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <div class="mb-3">
+                                            <label for="prompt" class="form-label">Describe your report requirements:</label>
+                                            <textarea class="form-control" id="prompt" name="prompt" rows="3" 
+                                                      placeholder="e.g. Create a customer report with name, email, and total orders..."></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="image" class="form-label">Upload reference image (optional):</label>
+                                            <input type="file" class="form-control" id="image" name="image" accept="image/*">
+                                        </div>
+                                        <button type="submit" class="btn btn-primary w-100">
+                                            <i class="fas fa-magic"></i> Generate JRXML
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/xml/xml.min.js"></script>
+    <script>
+        var editor = CodeMirror.fromTextArea(document.getElementById('jrxml'), {
+            lineNumbers: true,
+            mode: 'application/xml',
+            theme: 'default',
+            indentUnit: 4
+        });
+
+        let selectedFormat = 'html';
+
+        // Format button selection
+        document.querySelectorAll('.format-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                selectedFormat = this.dataset.format;
+            });
+        });
+
+        // Set default format
+        document.querySelector('[data-format="html"]').classList.add('active');
+
+        // Assistant form submission
+        document.getElementById('assistant-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const btn = this.querySelector('button[type="submit"]');
+            const originalText = btn.innerHTML;
+            
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+            btn.disabled = true;
+            
+            fetch('/editor/assistant', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                editor.setValue(data.jrxml);
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                alert('Error generating JRXML. Please try again.');
+            });
+        });
+
+        // Fullscreen toggle functionality
+        function toggleFullscreen(panelId) {
+            const panel = document.getElementById(panelId);
+            const isFullscreen = panel.classList.contains('fullscreen');
+            
+            if (isFullscreen) {
+                // Exit fullscreen
+                panel.classList.remove('fullscreen');
+                panel.querySelector('.fas.fa-compress').className = 'fas fa-expand';
+                if (panelId === 'editor-panel') {
+                    editor.refresh();
+                }
+            } else {
+                // Enter fullscreen
+                panel.classList.add('fullscreen');
+                panel.querySelector('.fas.fa-expand').className = 'fas fa-compress';
+                if (panelId === 'editor-panel') {
+                    setTimeout(() => editor.refresh(), 100);
+                }
+            }
+        }
+
+        // Generate sample report preview
+        function generateSamplePreview() {
+            const previewArea = document.getElementById('preview-area');
+            const sampleHtml = `
+                <div class="report-preview border p-3 bg-white">
+                    <div class="text-center mb-4">
+                        <h3 class="text-primary">Customer Orders Report</h3>
+                        <p class="text-muted">Generated from Sample Database</p>
+                    </div>
+                    
+                    <div class="customer-group mb-4">
+                        <div class="bg-light p-2 border-bottom">
+                            <strong>John Doe</strong> - john@example.com
+                        </div>
+                        <table class="table table-sm table-striped">
+                            <thead class="table-secondary">
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Order Date</th>
+                                    <th class="text-end">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>1</td>
+                                    <td>2024-01-15</td>
+                                    <td class="text-end">$150.00</td>
+                                </tr>
+                                <tr>
+                                    <td>2</td>
+                                    <td>2024-02-10</td>
+                                    <td class="text-end">$75.50</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="text-end border-top pt-2">
+                            <strong>Customer Total: $225.50</strong>
+                        </div>
+                    </div>
+                    
+                    <div class="customer-group mb-4">
+                        <div class="bg-light p-2 border-bottom">
+                            <strong>Jane Smith</strong> - jane@example.com
+                        </div>
+                        <table class="table table-sm table-striped">
+                            <thead class="table-secondary">
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Order Date</th>
+                                    <th class="text-end">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>3</td>
+                                    <td>2024-03-05</td>
+                                    <td class="text-end">$200.25</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="text-end border-top pt-2">
+                            <strong>Customer Total: $200.25</strong>
+                        </div>
+                    </div>
+                    
+                    <div class="customer-group mb-4">
+                        <div class="bg-light p-2 border-bottom">
+                            <strong>Bob Johnson</strong> - bob@example.com
+                        </div>
+                        <table class="table table-sm table-striped">
+                            <thead class="table-secondary">
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Order Date</th>
+                                    <th class="text-end">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>4</td>
+                                    <td>2024-04-12</td>
+                                    <td class="text-end">$89.99</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="text-end border-top pt-2">
+                            <strong>Customer Total: $89.99</strong>
+                        </div>
+                    </div>
+                    
+                    <div class="text-end mt-4">
+                        <small class="text-muted">Page 1</small>
+                    </div>
+                </div>
+            `;
+            previewArea.innerHTML = sampleHtml;
+        }
+
+        // Preview generation
+        document.getElementById('preview-btn').addEventListener('click', function() {
+            const connectionId = document.getElementById('connection_select').value;
+            const jrxmlContent = editor.getValue();
+            
+            if (!jrxmlContent.trim()) {
+                alert('Please enter JRXML content');
+                return;
+            }
+            
+            const btn = this;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+            btn.disabled = true;
+            
+            const formData = new FormData();
+            formData.append('jrxml_content', jrxmlContent);
+            formData.append('connection_id', connectionId || '');
+            formData.append('format', selectedFormat);
+            
+            fetch('/editor/preview', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                const previewArea = document.getElementById('preview-area');
+                if (data.success && data.html_preview) {
+                    previewArea.innerHTML = data.html_preview;
+                } else {
+                    previewArea.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle"></i> ${data.message || 'Preview generation failed'}
+                        </div>
+                    `;
+                }
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                const previewArea = document.getElementById('preview-area');
+                previewArea.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i> Error generating preview. Please try again.
+                    </div>
+                `;
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            });
+        });
+    </script>
+</body>
+</html>

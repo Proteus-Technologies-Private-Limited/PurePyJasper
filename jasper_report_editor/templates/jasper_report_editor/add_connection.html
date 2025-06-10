@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Add Database Connection - Jasper Report Editor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h4><i class="fas fa-plus me-2"></i>Add New Database Connection</h4>
+                    </div>
+                    <div class="card-body">
+                        <form method="post">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Connection Name</label>
+                                <input type="text" class="form-control" id="name" name="name" required>
+                                <small class="form-text text-muted">A unique name to identify this connection</small>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="database_type" class="form-label">Database Type</label>
+                                <select class="form-select" id="database_type" name="database_type" required>
+                                    <option value="">Select database type...</option>
+                                    <option value="sqlite">SQLite</option>
+                                    <option value="mysql">MySQL</option>
+                                    <option value="postgresql">PostgreSQL</option>
+                                    <option value="oracle">Oracle</option>
+                                    <option value="sqlserver">SQL Server</option>
+                                </select>
+                            </div>
+
+                            <div id="connection-fields">
+                                <div class="row sqlite-fields" style="display: none;">
+                                    <div class="col-12">
+                                        <div class="mb-3">
+                                            <label for="sqlite_database_name" class="form-label">Database File Path</label>
+                                            <input type="text" class="form-control" id="sqlite_database_name" name="database_name" 
+                                                   placeholder="e.g., sample.db or /path/to/database.db">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="remote-fields" style="display: none;">
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            <div class="mb-3">
+                                                <label for="host" class="form-label">Host</label>
+                                                <input type="text" class="form-control" id="host" name="host" placeholder="localhost">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="port" class="form-label">Port</label>
+                                                <input type="number" class="form-control" id="port" name="port">
+                                                <small class="form-text text-muted port-hint"></small>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="remote_database_name" class="form-label">Database Name</label>
+                                        <input type="text" class="form-control" id="remote_database_name" name="database_name">
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="username" class="form-label">Username</label>
+                                                <input type="text" class="form-control" id="username" name="username">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="password" class="form-label">Password</label>
+                                                <input type="password" class="form-control" id="password" name="password">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-between">
+                                <a href="{{ url_for('JasperReportEditor.connections') }}" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left"></i> Cancel
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Save Connection
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const dbTypeSelect = document.getElementById('database_type');
+        const sqliteFields = document.querySelector('.sqlite-fields');
+        const remoteFields = document.querySelector('.remote-fields');
+        const portInput = document.getElementById('port');
+        const portHint = document.querySelector('.port-hint');
+
+        const defaultPorts = {
+            'mysql': 3306,
+            'postgresql': 5432,
+            'oracle': 1521,
+            'sqlserver': 1433
+        };
+
+        const portHints = {
+            'mysql': 'Default: 3306',
+            'postgresql': 'Default: 5432',
+            'oracle': 'Default: 1521',
+            'sqlserver': 'Default: 1433'
+        };
+
+        dbTypeSelect.addEventListener('change', function() {
+            const selectedType = this.value;
+            
+            if (selectedType === 'sqlite') {
+                sqliteFields.style.display = 'block';
+                remoteFields.style.display = 'none';
+            } else if (selectedType) {
+                sqliteFields.style.display = 'none';
+                remoteFields.style.display = 'block';
+                
+                // Set default port and hint
+                if (defaultPorts[selectedType]) {
+                    portInput.value = defaultPorts[selectedType];
+                    portHint.textContent = portHints[selectedType];
+                } else {
+                    portInput.value = '';
+                    portHint.textContent = '';
+                }
+            } else {
+                sqliteFields.style.display = 'none';
+                remoteFields.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
