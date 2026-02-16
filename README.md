@@ -1,6 +1,8 @@
 # jasper_report.ai
 
-This application provides a simple web based editor for JasperReports JRXML files powered by GPT-4.1.  The `JasperReportEditor` blueprint exposes an interface that allows uploading and editing JRXML files with CodeMirror, managing database connections and calling a language model to regenerate reports.
+This application provides a comprehensive python implementation of jasper report engine in pure pythin without any javva dependency. 
+
+It also include a simple web based viewer for JasperReports JRXML files. There is comprehensive sample reports available showcasing compitibility with most of the jasper report feature in python.
 
 ## Running
 
@@ -9,4 +11,4 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Access the editor at `http://localhost:8080/editor`.
+Access the view at `http://localhost:8080/editor`.
