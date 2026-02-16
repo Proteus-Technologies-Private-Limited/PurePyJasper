@@ -1,4 +1,4 @@
-# jasper_report.ai
+# PurePyJasper
 
 This application provides a comprehensive python implementation of jasper report engine in pure pythin without any javva dependency. 
 
